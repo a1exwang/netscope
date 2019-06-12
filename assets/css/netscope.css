@@ -115,6 +115,10 @@ h1, h2, h3 {
     fill: #CA5237;
 }
 
+.node-type-blob {
+    fill: gray;
+}
+
 .node-type-convolution .node-label, .node-type-deconvolution .node-label {
     color: #FFF;
 }

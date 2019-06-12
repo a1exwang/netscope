@@ -19,6 +19,7 @@ class Renderer
     generateGraph: ->
         @setupGraph()
         nodes = @net.sortTopologically()
+        console.log(nodes)
         for node in nodes
             if node.isInGraph
                 continue
@@ -33,7 +34,20 @@ class Renderer
             @insertNode layers
 
             for parent in node.parents
-                @insertLink parent, node
+                tops = []
+                bottom_set = new Set()
+                for top in parent.tops
+                    tops.push(top.name)
+                for bottom in node.bottoms
+                    bottom_set.add(bottom.name)
+
+                intersection = new Set(tops.filter((x) => bottom_set.has(x)))
+                if intersection.size != 1
+                    throw "wtferror"
+
+                intersection_array = Array.from(intersection);
+                blob_name = "blob_" + intersection_array[0]
+                @insertLink parent, node, blob_name
         for source in @graph.sources()
             (@graph.node source).class = 'node-type-source'
         for sink in @graph.sinks()
@@ -59,14 +73,40 @@ class Renderer
                 shape: 'circle'
         @graph.setNode baseNode.name, nodeDesc
 
+    generateBlobLabel: (name) ->
+        if not @iconify
+            '<div class="node-label">'+name+'</div>'
+        else
+            ''
+
+    insertBlobNode: (layer, name) ->
+        nodeDesc =
+            labelType   : 'html'
+            label       : @generateBlobLabel name
+            class       : 'node-type-blob'
+            layers      : [layer]
+            rx          : 5
+            ry          : 5
+            shape       : 'ellipse'
+        console.log("label: " + nodeDesc.label)
+        if @iconify
+            _.extend nodeDesc,
+                shape: 'circle'
+        @graph.setNode name, nodeDesc
+
     generateLabel: (layer) ->
         if not @iconify
             '<div class="node-label">'+layer.name+'</div>'
         else
             ''
 
-    insertLink: (src, dst) ->
-        @graph.setEdge src.name, dst.name,
+    insertLink: (src, dst, blob_name) ->
+
+        @insertBlobNode src ,blob_name
+        console.log name
+        @graph.setEdge src.name, blob_name,
+            arrowhead : 'vee'
+        @graph.setEdge blob_name, dst.name,
             arrowhead : 'vee'
 
     renderKey:(key) ->

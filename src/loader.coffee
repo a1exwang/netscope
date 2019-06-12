@@ -23,9 +23,10 @@ class Loader
     fromURL: (url, callback) =>
         # Load the model from the given URL.
         # This may fail due to same-origin policy.
+        console.log("url: " + url)
         $.ajax
             url: url
-            success: => @load data, callback
+            success: (data) => @load data, callback
 
     fromPreset: (name, callback) =>
         # Load a preset model. Caffe Only.
@@ -34,7 +35,9 @@ class Loader
             @load data, callback
 
     load: (data, callback) =>
+        console.log(callback)
         net = @parser.parse data
+        console.log(net)
         if not _.isUndefined(callback)
             callback net
         return net

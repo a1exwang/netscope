@@ -1,4 +1,4 @@
-(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 var AppController, Editor, Notify, Renderer,
   bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   slice = [].slice;
@@ -2901,10 +2901,11 @@ module.exports = Loader = (function() {
   };
 
   Loader.prototype.fromURL = function(url, callback) {
+    console.log("url: " + url);
     return $.ajax({
       url: url,
       success: (function(_this) {
-        return function() {
+        return function(data) {
           return _this.load(data, callback);
         };
       })(this)
@@ -2921,7 +2922,9 @@ module.exports = Loader = (function() {
 
   Loader.prototype.load = function(data, callback) {
     var net;
+    console.log(callback);
     net = this.parser.parse(data);
+    console.log(net);
     if (!_.isUndefined(callback)) {
       callback(net);
     }
@@ -3201,9 +3204,10 @@ module.exports = Renderer = (function() {
   };
 
   Renderer.prototype.generateGraph = function() {
-    var child, i, j, k, l, lastCoalesed, layers, len, len1, len2, len3, len4, m, node, nodes, parent, ref, ref1, ref2, ref3, sink, source, uberParents;
+    var blob_name, bottom, bottom_set, child, i, intersection, intersection_array, j, k, l, lastCoalesed, layers, len, len1, len2, len3, len4, len5, len6, m, n, node, nodes, o, parent, ref, ref1, ref2, ref3, ref4, ref5, sink, source, top, tops, uberParents;
     this.setupGraph();
     nodes = this.net.sortTopologically();
+    console.log(nodes);
     for (i = 0, len = nodes.length; i < len; i++) {
       node = nodes[i];
       if (node.isInGraph) {
@@ -3224,17 +3228,39 @@ module.exports = Renderer = (function() {
       ref1 = node.parents;
       for (k = 0, len2 = ref1.length; k < len2; k++) {
         parent = ref1[k];
-        this.insertLink(parent, node);
+        tops = [];
+        bottom_set = new Set();
+        ref2 = parent.tops;
+        for (l = 0, len3 = ref2.length; l < len3; l++) {
+          top = ref2[l];
+          tops.push(top.name);
+        }
+        ref3 = node.bottoms;
+        for (m = 0, len4 = ref3.length; m < len4; m++) {
+          bottom = ref3[m];
+          bottom_set.add(bottom.name);
+        }
+        intersection = new Set(tops.filter((function(_this) {
+          return function(x) {
+            return bottom_set.has(x);
+          };
+        })(this)));
+        if (intersection.size !== 1) {
+          throw "wtferror";
+        }
+        intersection_array = Array.from(intersection);
+        blob_name = "blob_" + intersection_array[0];
+        this.insertLink(parent, node, blob_name);
       }
     }
-    ref2 = this.graph.sources();
-    for (l = 0, len3 = ref2.length; l < len3; l++) {
-      source = ref2[l];
+    ref4 = this.graph.sources();
+    for (n = 0, len5 = ref4.length; n < len5; n++) {
+      source = ref4[n];
       (this.graph.node(source))["class"] = 'node-type-source';
     }
-    ref3 = this.graph.sinks();
-    for (m = 0, len4 = ref3.length; m < len4; m++) {
-      sink = ref3[m];
+    ref5 = this.graph.sinks();
+    for (o = 0, len6 = ref5.length; o < len6; o++) {
+      sink = ref5[o];
       (this.graph.node(sink))["class"] = 'node-type-sink';
     }
     return this.render();
@@ -3266,6 +3292,34 @@ module.exports = Renderer = (function() {
     return this.graph.setNode(baseNode.name, nodeDesc);
   };
 
+  Renderer.prototype.generateBlobLabel = function(name) {
+    if (!this.iconify) {
+      return '<div class="node-label">' + name + '</div>';
+    } else {
+      return '';
+    }
+  };
+
+  Renderer.prototype.insertBlobNode = function(layer, name) {
+    var nodeDesc;
+    nodeDesc = {
+      labelType: 'html',
+      label: this.generateBlobLabel(name),
+      "class": 'node-type-blob',
+      layers: [layer],
+      rx: 5,
+      ry: 5,
+      shape: 'ellipse'
+    };
+    console.log("label: " + nodeDesc.label);
+    if (this.iconify) {
+      _.extend(nodeDesc, {
+        shape: 'circle'
+      });
+    }
+    return this.graph.setNode(name, nodeDesc);
+  };
+
   Renderer.prototype.generateLabel = function(layer) {
     if (!this.iconify) {
       return '<div class="node-label">' + layer.name + '</div>';
@@ -3274,8 +3328,13 @@ module.exports = Renderer = (function() {
     }
   };
 
-  Renderer.prototype.insertLink = function(src, dst) {
-    return this.graph.setEdge(src.name, dst.name, {
+  Renderer.prototype.insertLink = function(src, dst, blob_name) {
+    this.insertBlobNode(src, blob_name);
+    console.log(name);
+    this.graph.setEdge(src.name, blob_name, {
+      arrowhead: 'vee'
+    });
+    return this.graph.setEdge(blob_name, dst.name, {
       arrowhead: 'vee'
     });
   };
